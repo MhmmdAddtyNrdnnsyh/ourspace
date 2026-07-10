@@ -50,7 +50,7 @@ Membuat ruang digital private untuk dua orang yang terasa personal sejak pertama
 ## Fitur setelah v1
 
 - Date Plans simple: judul, tanggal, lokasi, status, catatan.
-- Gallery private: foto saja, caption dan tanggal wajib, max 5 MB.
+- Gallery private: foto saja, caption dan tanggal wajib, max 3 MB.
 - Gallery preview via thumbnail dari API; file asli tetap private di Drive.
 - Shared Lists untuk wishlist tempat, makanan, film, aktivitas, atau hadiah.
 - Backup otomatis via Apps Script trigger ke folder Drive.

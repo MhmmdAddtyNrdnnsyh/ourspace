@@ -9,6 +9,8 @@ Use this before using OurSpace daily.
 
 `APPS_SCRIPT_URL` stays server-side only. Browser requests must show `POST /api/apps-script`.
 Do not commit `.env` with the real Apps Script URL.
+Use an ignored local `.env` for development and Vercel Environment Variables
+for production. Only `.env.example` may be tracked, with placeholder values.
 
 ## Apps Script
 
@@ -18,6 +20,8 @@ Do not commit `.env` with the real Apps Script URL.
 4. Use the `/exec` URL for `APPS_SCRIPT_URL`.
 5. Run `setupSchema()` after schema changes, including `shared_lists`.
 6. Run `authorizeOurSpace()` once after Drive scope changes.
+7. Open Deploy → Manage deployments, then disable/archive old deployments so
+   only the latest production deployment remains active.
 
 Required Script Properties:
 
@@ -80,20 +84,25 @@ Required Script Properties:
    anniversary date.
 5. Confirm a wrong recovery date fails with generic copy.
 6. Confirm successful recovery enters Home and does not change anniversaryDate.
-7. Confirm Home loads greeting and days together.
-8. Create, edit, and delete a note from Notes.
-9. Create, edit, and delete a date plan.
-10. Switch Dates between List and Kalender.
-11. Upload, edit, and soft-delete a gallery photo under 5 MB.
-12. Create, edit, and soft-delete a shared list item.
-13. Click Settings `Cek koneksi`.
-14. Click Settings `Cek session`.
-15. Click Settings `Cek Gallery`.
-16. Click Settings `Cek Backup`.
-17. Run `Backup sekarang` from Settings.
-18. Open the latest backup JSON and confirm `includedSheets` and `itemCounts`.
-19. Confirm no raw `sessionToken` appears in backup JSON.
-20. Confirm the other member cannot edit/delete content they did not create.
+7. Submit five wrong recovery attempts for one nickname, then confirm the next
+   attempt returns `RATE_LIMITED` with generic copy. Retry after 15 minutes or
+   with a non-limited member and confirm valid recovery still works.
+8. Confirm Home loads greeting and days together.
+9. Create, edit, and delete a note from Notes.
+10. Create, edit, and delete a date plan.
+11. Switch Dates between List and Kalender.
+12. Upload, edit, and soft-delete a gallery photo under 3 MB.
+13. Create, edit, and soft-delete a shared list item.
+14. Click Settings `Cek koneksi`.
+15. Click Settings `Cek session`.
+16. Click Settings `Cek Gallery`.
+17. Click Settings `Cek Backup`.
+18. Run `Backup sekarang` from Settings.
+19. Open the latest backup JSON and confirm `includedSheets` and `itemCounts`.
+20. Confirm no raw `sessionToken` appears in backup JSON.
+21. Confirm the other member cannot edit/delete content they did not create.
+22. Create or update text beginning with `=`, `+`, `-`, and `@`; confirm Sheets
+    stores text rather than formulas and the UI shows the intended text.
 
 Recovery currently replaces the `sessionToken` for that member identity. Full
 multi-device approval can be added later if needed.

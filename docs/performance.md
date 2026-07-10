@@ -16,6 +16,9 @@ to avoid repeated calls and make slow network moments feel intentional.
   of refetching the full list.
 - Home summary requests only one Gallery item so photo thumbnails do not slow
   the first Home render.
+- `home.get` now includes the Home summary, so a current backend deployment
+  opens Home with one API request. The frontend keeps a compatibility fallback
+  for older Apps Script deployments.
 - Gallery, Dates, Lists, Notes, and Settings are lazy-loaded route chunks.
 - Loading states use compact scrapbook skeleton cards instead of blank screens or
   large spinner-only panels.
@@ -85,6 +88,19 @@ builds skip these logs.
 - `setupSchema()` is manual only and must not run during normal `doPost`.
 - `getSpreadsheet()` reuses the Spreadsheet object within the runtime context to
   reduce repeated `SpreadsheetApp.openById` overhead.
+- Each web request keeps an in-memory row/header/sheet context, so repeated reads
+  of the same sheet inside one action do not call Spreadsheet again.
+- `CacheService.getScriptCache()` stores headers and small raw row snapshots.
+  Current row TTLs are 30 seconds for Notes, Dates, Gallery, Lists, and Backups.
+  Couple settings use request-local caching only so anniversary reads never use
+  a shared stale snapshot.
+- Cache values above 80 KB are skipped automatically. This commonly affects a
+  Gallery with several thumbnails; the request still falls back to Spreadsheet.
+- All app writes invalidate the matching shared cache after Spreadsheet succeeds
+  and update the request-local snapshot.
+- Pairing rechecks member/settings data from Spreadsheet inside its script lock,
+  and backup clears row snapshots before exporting, so these sensitive paths do
+  not trust stale cache data.
 - `gallery.list` reads Spreadsheet metadata only. It does not fetch Drive blobs.
 
 ## Known Limits
@@ -94,6 +110,8 @@ builds skip these logs.
   Large photos intentionally use placeholders instead of heavy thumbnail data.
 - Backup can be heavy by design and should stay manual/triggered, not part of
   normal page loading.
+- Apps Script Cache Service is best-effort. A cache miss is always safe because
+  Spreadsheet remains the source of truth.
 
 ## Manual Checks
 
@@ -103,3 +121,5 @@ builds skip these logs.
 3. Create/edit/delete an item and confirm the list updates without a full reload.
 4. Confirm Network does not show duplicate simultaneous identical API requests.
 5. Confirm browser requests still go through `/api/apps-script`.
+6. Open Apps Script execution logs and confirm repeated reads can show
+   `spreadsheet:getSheetObjects:cache-hit`.

@@ -1,7 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 type OurSpaceErrorCode = 'BAD_REQUEST' | 'CONFIG_MISSING' | 'INTERNAL_ERROR'
-const maxRequestBodyBytes = 7 * 1024 * 1024
+const maxGalleryUploadBytes = 3 * 1024 * 1024
+const maxRequestBodyBytes = 4_400_000
+const galleryUploadTooLargeMessage =
+  'Foto maksimal 3 MB dulu ya, biar upload-nya aman.'
 
 type ApiRequest = IncomingMessage & {
   readonly body?: unknown
@@ -87,6 +90,29 @@ function bodyFromRequest(request: ApiRequest) {
   })
 }
 
+function galleryUploadIsTooLarge(body: string) {
+  try {
+    const request: unknown = JSON.parse(body)
+
+    if (
+      typeof request !== 'object' ||
+      request === null ||
+      !('action' in request) ||
+      request.action !== 'gallery.create' ||
+      !('payload' in request) ||
+      typeof request.payload !== 'object' ||
+      request.payload === null ||
+      !('fileSize' in request.payload)
+    ) {
+      return false
+    }
+
+    return Number(request.payload.fileSize) > maxGalleryUploadBytes
+  } catch {
+    return false
+  }
+}
+
 export default async function handler(
   request: ApiRequest,
   response: ServerResponse,
@@ -108,12 +134,23 @@ export default async function handler(
   }
 
   try {
+    const body = await bodyFromRequest(request)
+
+    if (galleryUploadIsTooLarge(body)) {
+      sendJson(
+        response,
+        413,
+        jsonError('BAD_REQUEST', galleryUploadTooLargeMessage),
+      )
+      return
+    }
+
     const upstreamResponse = await fetch(appsScriptUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8',
       },
-      body: await bodyFromRequest(request),
+      body,
       redirect: 'follow',
       signal: AbortSignal.timeout(55_000),
     })

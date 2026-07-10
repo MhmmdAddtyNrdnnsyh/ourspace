@@ -167,9 +167,9 @@ Full multi-device approval can be added later if needed.
 2. Run `Cek Gallery` in Settings and confirm it passes.
 3. Upload a JPG, PNG, or WebP photo under 1 MB with caption and taken date.
 4. Confirm the preview appears in the gallery card.
-5. Upload a larger photo under 5 MB.
+5. Upload a larger photo under 3 MB.
 6. Confirm placeholder preview is intentional if the thumbnail is not returned.
-7. Try uploading a file over 5 MB and expect a friendly rejection.
+7. Try uploading a file over 3 MB and expect a friendly rejection.
 8. Try submitting without caption or taken date and expect a friendly rejection.
 9. Edit your own caption and taken date.
 10. Delete your own photo.

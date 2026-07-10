@@ -1,5 +1,6 @@
 function doPost(event) {
   console.log('doPost:start')
+  beginRequestContext()
 
   try {
     var body = event && event.postData ? event.postData.contents : ''

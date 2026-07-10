@@ -1,3 +1,7 @@
+var RECOVERY_RATE_LIMIT_MAX_FAILURES = 5
+var RECOVERY_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
+var RECOVERY_RATE_LIMIT_KEY_PREFIX = 'ourspace:recovery:'
+
 function validateSession(request) {
   if (!request.memberId || !request.sessionToken) {
     throw newAppError('SESSION_INVALID', 'Session is required')
@@ -50,42 +54,112 @@ function getSessionResume(request) {
 function recoverSession(request) {
   var nickname = requireNickname(request.payload.nickname)
   var recoveryDate = requireRecoveryDate(request.payload.anniversaryDate)
-  var anniversaryDate = getSetting('anniversaryDate')
 
-  if (!anniversaryDate || isoDateInJakarta(anniversaryDate) !== recoveryDate) {
-    throwRecoveryFailed()
-  }
+  return withScriptLock(function () {
+    var nowMs = Date.now()
+    var member = getSheetObjects('members').find(function (row) {
+      return (
+        !row.deletedAt &&
+        normalizeNickname(row.nickname).toLowerCase() === nickname.toLowerCase()
+      )
+    })
+    var rateLimitIdentity = member
+      ? 'member:' + normalizeNickname(member.nickname).toLowerCase()
+      : 'unknown'
+    var rateLimitKey = getRecoveryRateLimitKey(rateLimitIdentity)
+    var rateLimitState = readRecoveryRateLimitState(rateLimitKey, nowMs)
 
-  var member = getSheetObjects('members').find(function (row) {
-    return (
-      !row.deletedAt &&
-      normalizeNickname(row.nickname).toLowerCase() === nickname.toLowerCase()
-    )
+    if (rateLimitState.isLimited) {
+      throw newAppError(
+        'RATE_LIMITED',
+        'Terlalu banyak percobaan. Coba lagi nanti ya.',
+      )
+    }
+
+    var anniversaryDate = getSetting('anniversaryDate')
+
+    if (
+      !anniversaryDate ||
+      isoDateInJakarta(anniversaryDate) !== recoveryDate ||
+      !member
+    ) {
+      recordRecoveryFailure(rateLimitKey, rateLimitState.activeFailures, nowMs)
+      throwRecoveryFailed()
+    }
+
+    clearRecoveryFailures(rateLimitKey)
+
+    var sessionToken = newSessionToken()
+    var timestamp = nowIso()
+
+    updateObjectRow('members', member.rowNumber, {
+      sessionTokenHash: hashSessionToken(sessionToken),
+      lastSeenAt: timestamp,
+      updatedAt: timestamp,
+    })
+
+    return {
+      memberId: member.id,
+      sessionToken: sessionToken,
+      member: {
+        id: member.id,
+        nickname: member.nickname,
+      },
+      members: listActiveMembers(),
+      anniversaryDate: anniversaryDate,
+    }
   })
+}
 
-  if (!member) {
-    throwRecoveryFailed()
-  }
-
-  var sessionToken = newSessionToken()
-  var timestamp = nowIso()
-
-  updateObjectRow('members', member.rowNumber, {
-    sessionTokenHash: hashSessionToken(sessionToken),
-    lastSeenAt: timestamp,
-    updatedAt: timestamp,
-  })
+function getRecoveryRateLimitState(failures, nowMs) {
+  var windowStart = nowMs - RECOVERY_RATE_LIMIT_WINDOW_MS
+  var activeFailures = (Array.isArray(failures) ? failures : []).filter(
+    function (timestamp) {
+      return (
+        Number.isFinite(timestamp) &&
+        timestamp > windowStart &&
+        timestamp <= nowMs
+      )
+    },
+  )
 
   return {
-    memberId: member.id,
-    sessionToken: sessionToken,
-    member: {
-      id: member.id,
-      nickname: member.nickname,
-    },
-    members: listActiveMembers(),
-    anniversaryDate: anniversaryDate,
+    activeFailures: activeFailures,
+    isLimited: activeFailures.length >= RECOVERY_RATE_LIMIT_MAX_FAILURES,
   }
+}
+
+function getRecoveryRateLimitKey(identity) {
+  return (
+    RECOVERY_RATE_LIMIT_KEY_PREFIX +
+    hashSessionToken('recovery:' + identity)
+  )
+}
+
+function readRecoveryRateLimitState(key, nowMs) {
+  var value = PropertiesService.getScriptProperties().getProperty(key)
+  var failures = []
+
+  if (value) {
+    try {
+      failures = JSON.parse(value)
+    } catch (error) {
+      console.error('recovery:rate-limit:parse-error')
+    }
+  }
+
+  return getRecoveryRateLimitState(failures, nowMs)
+}
+
+function recordRecoveryFailure(key, activeFailures, nowMs) {
+  PropertiesService.getScriptProperties().setProperty(
+    key,
+    JSON.stringify(activeFailures.concat(nowMs)),
+  )
+}
+
+function clearRecoveryFailures(key) {
+  PropertiesService.getScriptProperties().deleteProperty(key)
 }
 
 function requireRecoveryDate(value) {

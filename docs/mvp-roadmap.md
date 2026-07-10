@@ -74,7 +74,7 @@ Goal: rencana date simple.
 
 Goal: foto tersimpan private di Drive dan tetap bisa dipreview di app.
 
-- Upload foto saja, max 5 MB.
+- Upload foto saja, max 3 MB.
 - Caption dan tanggal wajib.
 - Simpan original di private Drive.
 - Simpan metadata dan thumbnail kecil di Spreadsheet.

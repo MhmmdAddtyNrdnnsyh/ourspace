@@ -1,5 +1,13 @@
 var ourspaceSpreadsheetCache = null
 
+function sanitizeSheetCellValue(value) {
+  if (typeof value !== 'string' || !/^[=+\-@]/.test(value)) {
+    return value
+  }
+
+  return "'" + value
+}
+
 function getSpreadsheet() {
   if (ourspaceSpreadsheetCache) {
     return ourspaceSpreadsheetCache
@@ -16,23 +24,39 @@ function getSpreadsheet() {
 }
 
 function getSheetOrThrow(name) {
+  if (hasRequestCacheEntry(ourspaceRequestSheetsCache, name)) {
+    return ourspaceRequestSheetsCache[name]
+  }
+
   var sheet = getSpreadsheet().getSheetByName(name)
 
   if (!sheet) {
     throw newAppError('CONFIG_MISSING', 'Missing sheet: ' + name)
   }
 
+  ourspaceRequestSheetsCache[name] = sheet
   return sheet
 }
 
-function getHeaderRow(sheet) {
+function getHeaderRow(sheet, forceFresh) {
+  var sheetName = sheet.getName()
+
+  if (!forceFresh) {
+    var cachedHeaders = getCachedHeaders(sheetName)
+
+    if (cachedHeaders) {
+      return cachedHeaders
+    }
+  }
+
   var startedAt = Date.now()
-  console.log('spreadsheet:getHeaderRow:start ' + sheet.getName())
+  console.log('spreadsheet:getHeaderRow:start ' + sheetName)
   var lastColumn = Math.max(sheet.getLastColumn(), 1)
   var headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].filter(String)
+  setCachedHeaders(sheetName, headers)
   console.log(
     'spreadsheet:getHeaderRow:done ' +
-      sheet.getName() +
+      sheetName +
       ' ' +
       String(Date.now() - startedAt) +
       'ms',
@@ -46,6 +70,8 @@ function setHeaderRow(sheet, headers) {
   console.log('spreadsheet:setHeaderRow:start ' + sheet.getName())
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
   sheet.setFrozenRows(1)
+  invalidateHeadersCache(sheet.getName())
+  setCachedHeaders(sheet.getName(), headers)
   console.log(
     'spreadsheet:setHeaderRow:done ' +
       sheet.getName() +
@@ -69,7 +95,7 @@ function ensureSheet(name, headers) {
     }
   }
 
-  var existingHeaders = getHeaderRow(sheet)
+  var existingHeaders = getHeaderRow(sheet, true)
   var missingHeaders = headers.filter(function (header) {
     return existingHeaders.indexOf(header) === -1
   })
@@ -97,6 +123,8 @@ function ensureSheet(name, headers) {
 }
 
 function setupSchema() {
+  beginRequestContext()
+
   return Object.keys(SHEET_SCHEMAS).map(function (name) {
     return ensureSheet(name, SHEET_SCHEMAS[name])
   })
@@ -110,8 +138,19 @@ function appendObjectRow(sheetName, row) {
   var values = headers.map(function (header) {
     return row[header] === undefined ? '' : row[header]
   })
+  var sheetValues = values.map(sanitizeSheetCellValue)
 
-  sheet.appendRow(values)
+  sheet.appendRow(sheetValues)
+  invalidateSharedSheetCache(sheetName)
+
+  if (hasRequestCacheEntry(ourspaceRequestRowsCache, sheetName)) {
+    appendRequestCachedRow(
+      sheetName,
+      sheet.getLastRow(),
+      headers,
+      values,
+    )
+  }
   console.log(
     'spreadsheet:appendObjectRow:done ' +
       sheetName +
@@ -124,6 +163,18 @@ function appendObjectRow(sheetName, row) {
 }
 
 function getSheetObjects(sheetName) {
+  if (hasRequestCacheEntry(ourspaceRequestRowsCache, sheetName)) {
+    return ourspaceRequestRowsCache[sheetName]
+  }
+
+  var sharedRows = getSharedSheetRows(sheetName)
+
+  if (Array.isArray(sharedRows)) {
+    ourspaceRequestRowsCache[sheetName] = sharedRows
+    console.log('spreadsheet:getSheetObjects:cache-hit ' + sheetName)
+    return sharedRows
+  }
+
   var startedAt = Date.now()
   console.log('spreadsheet:getSheetObjects:start ' + sheetName)
   var sheet = getSheetOrThrow(sheetName)
@@ -138,7 +189,9 @@ function getSheetObjects(sheetName) {
         String(Date.now() - startedAt) +
         'ms',
     )
-    return []
+    ourspaceRequestRowsCache[sheetName] = []
+    setSharedSheetRows(sheetName, [])
+    return ourspaceRequestRowsCache[sheetName]
   }
 
   var rows = sheet
@@ -165,6 +218,9 @@ function getSheetObjects(sheetName) {
       'ms',
   )
 
+  ourspaceRequestRowsCache[sheetName] = rows
+  setSharedSheetRows(sheetName, rows)
+
   return rows
 }
 
@@ -178,8 +234,11 @@ function updateObjectRow(sheetName, rowNumber, updates) {
   var nextValues = headers.map(function (header, index) {
     return updates[header] === undefined ? currentValues[index] : updates[header]
   })
+  var sheetValues = nextValues.map(sanitizeSheetCellValue)
 
-  range.setValues([nextValues])
+  range.setValues([sheetValues])
+  invalidateSharedSheetCache(sheetName)
+  updateRequestCachedRow(sheetName, rowNumber, headers, nextValues)
   console.log(
     'spreadsheet:updateObjectRow:done ' +
       sheetName +

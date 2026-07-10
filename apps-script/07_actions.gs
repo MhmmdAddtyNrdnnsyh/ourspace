@@ -76,6 +76,9 @@ function homeGet(request) {
   var session = validateSession(request)
   var anniversaryDate = getSetting('anniversaryDate')
   var activeNotes = listActiveStickyNotes(session.memberId)
+  var activeDatePlans = listActiveDatePlans(session.memberId)
+  var activeGalleryItems = listActiveGalleryItems(session.memberId)
+  var activeSharedItems = listActiveSharedItems(session.memberId)
 
   return {
     greeting: 'Hai, ' + session.nickname,
@@ -89,6 +92,52 @@ function homeGet(request) {
     counts: {
       stickyNotes: activeNotes.length,
     },
+    summary: buildHomeSummary(
+      activeNotes,
+      activeDatePlans,
+      activeGalleryItems,
+      activeSharedItems,
+    ),
+  }
+}
+
+function buildHomeSummary(notes, datePlans, galleryItems, sharedItems) {
+  var now = Date.now()
+  var latestNote = notes.slice().sort(function (a, b) {
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  })[0] || null
+  var nextDate = datePlans
+    .filter(function (plan) {
+      return (
+        plan.status !== 'cancelled' &&
+        new Date(plan.scheduledAt).getTime() >= now
+      )
+    })
+    .sort(function (a, b) {
+      return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+    })[0] || null
+  var galleryItem = galleryItems.slice().sort(function (a, b) {
+    var takenDiff = new Date(b.takenAt).getTime() - new Date(a.takenAt).getTime()
+
+    if (takenDiff !== 0) {
+      return takenDiff
+    }
+
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  })[0] || null
+  var listItem = sharedItems
+    .filter(function (item) {
+      return item.status !== 'done'
+    })
+    .sort(function (a, b) {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })[0] || null
+
+  return {
+    galleryItem: galleryItem,
+    latestNote: latestNote,
+    listItem: listItem,
+    nextDate: nextDate,
   }
 }
 
@@ -322,8 +371,11 @@ function galleryCreate(request) {
   var takenAt = normalizeGalleryTakenAt(request.payload.takenAt)
   var bytes = Utilities.base64Decode(base64)
 
-  if (bytes.length > fileSize + 16 || bytes.length > 5242880) {
-    throw newAppError('BAD_REQUEST', 'Ukuran foto terlalu besar')
+  if (bytes.length > fileSize + 16 || bytes.length > 3145728) {
+    throw newAppError(
+      'BAD_REQUEST',
+      'Foto maksimal 3 MB dulu ya, biar upload-nya aman.',
+    )
   }
 
   var timestamp = nowIso()
@@ -833,8 +885,11 @@ function normalizeGalleryMimeType(value) {
 function normalizeGalleryFileSize(value) {
   var fileSize = Number(value || 0)
 
-  if (!Number.isFinite(fileSize) || fileSize <= 0 || fileSize > 5242880) {
-    throw newAppError('BAD_REQUEST', 'Ukuran foto maksimal 5 MB')
+  if (!Number.isFinite(fileSize) || fileSize <= 0 || fileSize > 3145728) {
+    throw newAppError(
+      'BAD_REQUEST',
+      'Foto maksimal 3 MB dulu ya, biar upload-nya aman.',
+    )
   }
 
   return Math.floor(fileSize)

@@ -40,6 +40,7 @@ import {
   offlineMutationMessage,
   useOnlineStatus,
 } from '@/lib/online-status'
+import { MAX_GALLERY_UPLOAD_BYTES } from '@/lib/upload-limits'
 
 type GalleryState =
   | { readonly kind: 'loading' }
@@ -64,7 +65,6 @@ type EditEditor = {
   readonly error: string
 }
 
-const maxPhotoSize = 5 * 1024 * 1024
 const maxThumbnailDataLength = 40_000
 const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'] as const
 
@@ -193,8 +193,8 @@ function validateUpload(editor: UploadEditor) {
     return 'Foto harus JPG, PNG, atau WebP.'
   }
 
-  if (editor.file.size > maxPhotoSize) {
-    return 'Ukuran foto maksimal 5 MB.'
+  if (editor.file.size > MAX_GALLERY_UPLOAD_BYTES) {
+    return 'Foto maksimal 3 MB dulu ya, biar upload-nya aman.'
   }
 
   if (!editor.caption.trim()) {
@@ -657,7 +657,7 @@ function GalleryUploadForm({
             {editor.file ? editor.file.name : 'Pilih satu foto'}
           </span>
           <span className="mt-1 text-xs font-bold text-muted-foreground">
-            JPG, PNG, atau WebP. Maks 5 MB.
+            JPG, PNG, atau WebP. Maks 3 MB.
           </span>
           <input
             accept="image/jpeg,image/png,image/webp"

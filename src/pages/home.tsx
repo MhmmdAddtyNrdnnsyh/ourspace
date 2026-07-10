@@ -125,6 +125,26 @@ async function loadHomeSummary(): Promise<HomeSummary> {
   }
 }
 
+function getEmbeddedHomeSummary(home: HomeData): HomeSummary | null {
+  if (!home.summary) {
+    return null
+  }
+
+  return {
+    galleryItem: home.summary.galleryItem ?? null,
+    latestNote: home.summary.latestNote ?? null,
+    listItem: home.summary.listItem ?? null,
+    nextDate: home.summary.nextDate ?? null,
+  }
+}
+
+async function loadHomeWithSummary() {
+  const home = await getHome()
+  const summary = getEmbeddedHomeSummary(home) ?? await loadHomeSummary()
+
+  return [home, summary] as const
+}
+
 function createCachedSummary(): HomeSummary {
   const notes = getCachedNotesList()
   const dates = getCachedDatePlansList()
@@ -178,7 +198,7 @@ export function HomePage() {
     )
 
     try {
-      const [home, nextSummary] = await Promise.all([getHome(), loadHomeSummary()])
+      const [home, nextSummary] = await loadHomeWithSummary()
       setHomeState({
         kind: 'ready',
         data: home,
@@ -207,7 +227,7 @@ export function HomePage() {
 
     let isActive = true
 
-    Promise.all([getHome(), loadHomeSummary()])
+    loadHomeWithSummary()
       .then(([data, nextSummary]) => {
         if (isActive) {
           setHomeState({
@@ -265,7 +285,7 @@ export function HomePage() {
     try {
       await createNote({ body: nextBody, color })
       setBody('')
-      const [home, nextSummary] = await Promise.all([getHome(), loadHomeSummary()])
+      const [home, nextSummary] = await loadHomeWithSummary()
       setHomeState({
         kind: 'ready',
         data: home,

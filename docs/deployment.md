@@ -17,20 +17,33 @@ APPS_SCRIPT_URL="https://script.google.com/macros/s/xxx/exec"
 ```
 
 Only `VITE_API_URL` is public. Keep the real Apps Script URL in Vercel server env only.
+Local development may use an ignored `.env`, but real Apps Script deployment
+URLs must never be committed. Track only `.env.example` with placeholders.
 
 ## Apps Script Before Vercel
 
 1. Push/copy every file from `apps-script/`.
 2. Deploy a new Web App version.
 3. Use the `/exec` URL for `APPS_SCRIPT_URL`.
-4. Confirm Script Properties:
+
+After the latest production deployment is verified:
+
+1. Open Apps Script → Deploy → Manage deployments.
+2. Keep only the latest production deployment active.
+3. Disable or archive every superseded deployment.
+4. Put the latest `/exec` URL in the ignored local `.env` and in Vercel
+   Environment Variables. Never paste it into tracked files.
+
+Then finish backend setup:
+
+1. Confirm Script Properties:
    - `SHEET_ID`
    - `SESSION_SECRET`
    - `PAIRING_WINDOW_SECONDS`
    - `DRIVE_ROOT_FOLDER_ID`
-5. Run `setupSchema()` after schema changes.
-6. Run `authorizeOurSpace()` if Drive permissions changed.
-7. Run `installBackupTrigger()` if automatic backup should run daily.
+2. Run `setupSchema()` after schema changes.
+3. Run `authorizeOurSpace()` if Drive permissions changed.
+4. Run `installBackupTrigger()` if automatic backup should run daily.
 
 ## Vercel
 

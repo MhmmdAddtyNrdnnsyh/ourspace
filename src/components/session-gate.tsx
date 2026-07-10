@@ -3,8 +3,13 @@ import { Navigate, Outlet } from 'react-router'
 import { clearSession, getStoredSession } from '@/lib/session'
 import { clearApiCaches, resumeSession } from '@/lib/api'
 import { useOnlineStatus } from '@/lib/online-status'
+import { Button } from '@/components/ui/button'
+import {
+  sessionResumeRetryMessage,
+  shouldClearSessionAfterResume,
+} from '@/lib/session-resume-error'
 
-type GateState = 'checking' | 'ready' | 'blocked'
+type GateState = 'checking' | 'ready' | 'blocked' | 'temporary-error'
 
 export function SessionGate() {
   const { hasHydrated, isOnline } = useOnlineStatus()
@@ -30,18 +35,18 @@ export function SessionGate() {
         }
       })
       .catch((error: unknown) => {
-        if (error instanceof Error && active) {
+        if (!active) {
+          return
+        }
+
+        if (shouldClearSessionAfterResume(error)) {
           clearApiCaches()
           clearSession()
           setState('blocked')
           return
         }
 
-        if (active) {
-          clearApiCaches()
-          clearSession()
-          setState('blocked')
-        }
+        setState('temporary-error')
       })
 
     return () => {
@@ -75,6 +80,32 @@ export function SessionGate() {
         }}
         to="/pairing"
       />
+    )
+  }
+
+  if (state === 'temporary-error') {
+    if (hasHydrated && !isOnline) {
+      return <Outlet />
+    }
+
+    return (
+      <main className="grid min-h-dvh place-items-center bg-background px-5 text-foreground">
+        <div
+          className="max-w-sm rounded-[2rem] border bg-card p-6 text-center shadow-[0_18px_45px_rgb(103_74_58_/_0.14)]"
+          role="alert"
+        >
+          <p className="text-sm font-extrabold leading-relaxed text-muted-foreground">
+            {sessionResumeRetryMessage}
+          </p>
+          <Button
+            className="mt-4 w-full"
+            disabled={!isOnline}
+            onClick={() => setState('checking')}
+          >
+            Coba lagi
+          </Button>
+        </div>
+      </main>
     )
   }
 

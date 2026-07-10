@@ -134,7 +134,7 @@ Backend:
 - Apps Script punya limit eksekusi dan kuota harian.
 - CORS dan mode deployment Apps Script harus dites saat implementasi backend dimulai.
 - Polling terlalu sering bisa membebani Apps Script.
-- Upload file besar via Apps Script bisa lambat, jadi gallery dibatasi 5 MB per foto pada fase lanjut.
+- Upload file besar via Apps Script bisa lambat, jadi gallery dibatasi 3 MB per foto.
 - Spreadsheet tidak cocok untuk query kompleks atau data sangat besar.
 - Private Drive file tidak bisa langsung dipasang sebagai URL publik tanpa melemahkan privacy.
 

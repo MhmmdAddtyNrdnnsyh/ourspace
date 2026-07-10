@@ -7,6 +7,10 @@
     { "source": "/dates", "destination": "/index.html" },
     { "source": "/gallery", "destination": "/index.html" },
     { "source": "/lists", "destination": "/index.html" },
-    { "source": "/settings", "destination": "/index.html" }
+    { "source": "/settings", "destination": "/index.html" },
+    { "source": "/settings/health", "destination": "/index.html" },
+    { "source": "/settings/setup", "destination": "/index.html" },
+    { "source": "/settings/danger", "destination": "/index.html" },
+    { "source": "/offline", "destination": "/index.html" }
   ]
 }

@@ -36,6 +36,10 @@ import {
   secondsLeft,
   type PairingState,
 } from '@/lib/pairing'
+import {
+  sessionResumeRetryMessage,
+  shouldClearSessionAfterResume,
+} from '@/lib/session-resume-error'
 
 type PairingScreen = 'nickname' | 'hold'
 type PairingAccess =
@@ -47,6 +51,10 @@ type PairingAccess =
 function getRecoveryErrorMessage(error: unknown) {
   if (error instanceof ApiError && error.code === 'RECOVERY_FAILED') {
     return 'Nama atau tanggal jadiannya belum cocok.'
+  }
+
+  if (error instanceof ApiError && error.code === 'RATE_LIMITED') {
+    return 'Terlalu banyak percobaan. Coba lagi nanti ya.'
   }
 
   if (error instanceof ApiError) {
@@ -119,8 +127,13 @@ export function PairingPage() {
           }
 
           return
-        } catch {
-          clearSession()
+        } catch (error) {
+          if (shouldClearSessionAfterResume(error)) {
+            clearSession()
+          } else if (active) {
+            setAccess({ kind: 'error', message: sessionResumeRetryMessage })
+            return
+          }
         }
       }
 
@@ -525,6 +538,13 @@ function clearHoldTimer() {
           <p className="mt-3 text-sm font-bold leading-relaxed text-muted-foreground">
             {access.message}
           </p>
+          <Button
+            className="mt-5 w-full"
+            disabled={!isOnline}
+            onClick={() => window.location.reload()}
+          >
+            Coba lagi
+          </Button>
         </div>
       </main>
     )

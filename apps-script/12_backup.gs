@@ -9,6 +9,9 @@ var BACKUP_SHEETS = [
 ]
 
 function runBackup() {
+  beginRequestContext()
+  BACKUP_SHEETS.forEach(invalidateSheetCaches)
+
   var timestamp = nowIso()
 
   try {

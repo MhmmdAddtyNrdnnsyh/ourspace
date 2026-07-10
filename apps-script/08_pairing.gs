@@ -65,6 +65,7 @@ function pairingStart(request) {
   requireCoupleNotPaired()
 
   return withScriptLock(function () {
+    refreshCoupleStatusData()
     requireCoupleNotPaired()
     var nickname = requireNickname(request.payload.nickname)
     var reusableSession = findReusablePairingSession()
@@ -105,6 +106,7 @@ function pairingSignal(request) {
   requireCoupleNotPaired()
 
   return withScriptLock(function () {
+    refreshCoupleStatusData()
     requireCoupleNotPaired()
     var pairingSessionId = requirePairingSessionId(request.payload.pairingSessionId)
     var nickname = requireNickname(request.payload.nickname)
@@ -116,6 +118,11 @@ function pairingSignal(request) {
 
     return applyPairingSignal(session, nickname)
   })
+}
+
+function refreshCoupleStatusData() {
+  invalidateSheetCaches('couple_settings')
+  invalidateSheetCaches('members')
 }
 
 function requireCoupleNotPaired() {

@@ -294,7 +294,7 @@ Create payload:
 
 Rules:
 
-- `fileSize` maksimal 5 MB.
+- `fileSize` maksimal 3 MB.
 - `caption` dan `takenAt` wajib.
 - Backend menyimpan original ke private Drive.
 - API list/detail mengembalikan thumbnail/base64 kecil untuk preview private, bukan public URL.

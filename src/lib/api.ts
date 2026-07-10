@@ -581,6 +581,12 @@ export type HomeData = {
   readonly counts?: {
     readonly stickyNotes?: number
   }
+  readonly summary?: {
+    readonly galleryItem?: GalleryItem | null
+    readonly latestNote?: StickyNote | null
+    readonly listItem?: SharedItem | null
+    readonly nextDate?: DatePlan | null
+  }
 }
 
 export type StickyNote = {

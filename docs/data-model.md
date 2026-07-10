@@ -104,7 +104,7 @@ Aturan:
 | fileId | string | Google Drive file ID |
 | fileName | string | Nama file |
 | mimeType | string | `image/jpeg`, `image/png`, atau `image/webp` |
-| fileSize | number | Max 5 MB |
+| fileSize | number | Max 3 MB |
 | thumbnailData | string | Base64 thumbnail kecil untuk preview private |
 | caption | string | Wajib |
 | takenAt | string | Wajib, tanggal foto/momen |
