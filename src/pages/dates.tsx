@@ -17,6 +17,7 @@ import {
   DatesListSkeleton,
 } from '@/components/loading-skeleton'
 import { ScrapbookCard } from '@/components/scrapbook'
+import { OfflineEmptyState } from '@/components/offline-notice'
 import { Button } from '@/components/ui/button'
 import { ConfirmAlertDialog } from '@/components/ui/confirm-alert-dialog'
 import { DateTimePickerInput } from '@/components/ui/date-time-picker-input'
@@ -43,6 +44,10 @@ import {
 } from '@/lib/api'
 import type { DatePlan, DatePlanStatus } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import {
+  offlineMutationMessage,
+  useOnlineStatus,
+} from '@/lib/online-status'
 
 type DatesState =
   | { readonly kind: 'loading' }
@@ -297,6 +302,7 @@ function toStatus(value: string): DatePlanStatus {
 }
 
 export function DatesPage() {
+  const { isOnline } = useOnlineStatus()
   const [datesState, setDatesState] = useState<DatesState>(() => {
     const cached = getCachedDatePlansList()
     return cached
@@ -320,6 +326,10 @@ export function DatesPage() {
   const [deleteTarget, setDeleteTarget] = useState<DatePlan | null>(null)
 
   const loadDatePlans = useCallback(async () => {
+    if (!isOnline) {
+      return
+    }
+
     if (getCachedDatePlansList() === null) {
       setDatesState({ kind: 'loading' })
     }
@@ -344,9 +354,13 @@ export function DatesPage() {
           : { kind: 'error', message },
       )
     }
-  }, [])
+  }, [isOnline])
 
   useEffect(() => {
+    if (!isOnline) {
+      return
+    }
+
     let isActive = true
 
     listDatePlans()
@@ -378,9 +392,15 @@ export function DatesPage() {
     return () => {
       isActive = false
     }
-  }, [])
+  }, [isOnline])
 
   async function handleCreate() {
+    if (!isOnline) {
+      setCreateEditor({ ...createEditor, error: offlineMutationMessage })
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     const result = validateEditor(createEditor)
 
     if ('error' in result) {
@@ -419,6 +439,12 @@ export function DatesPage() {
   }
 
   async function handleUpdate(plan: DatePlan) {
+    if (!isOnline) {
+      setEditEditor({ ...editEditor, error: offlineMutationMessage })
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     const result = validateEditor(editEditor)
 
     if ('error' in result) {
@@ -452,6 +478,11 @@ export function DatesPage() {
   }
 
   async function handleDelete(plan: DatePlan) {
+    if (!isOnline) {
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     setBusyAction('delete:' + plan.id)
 
     try {
@@ -498,6 +529,7 @@ export function DatesPage() {
         <Button
           aria-label="Buat rencana date"
           className="page-action mt-1 shrink-0"
+          disabled={!isOnline}
           onClick={() => {
             setViewMode('list')
             setIsCreateOpen(true)
@@ -535,7 +567,9 @@ export function DatesPage() {
       </Tabs>
 
       {datesState.kind === 'loading' ? (
-        viewMode === 'calendar' ? (
+        !isOnline ? (
+          <OfflineEmptyState />
+        ) : viewMode === 'calendar' ? (
           <DatesCalendarSkeleton />
         ) : (
           <DatesListSkeleton />
@@ -543,6 +577,7 @@ export function DatesPage() {
       ) : null}
 
       {datesState.kind === 'ready' &&
+      isOnline &&
       (datesState.isRefreshing || datesState.warning) ? (
         <p className="rounded-full bg-scrap-yellow px-4 py-2 text-xs font-extrabold text-muted-foreground">
           {datesState.warning ||
@@ -551,6 +586,9 @@ export function DatesPage() {
       ) : null}
 
       {datesState.kind === 'error' ? (
+        !isOnline ? (
+          <OfflineEmptyState />
+        ) : (
         <ScrapbookCard tone="pink" tape>
           <h2 className="text-2xl font-black">Rencana belum kebuka.</h2>
           <p className="mt-2 text-sm font-bold leading-relaxed text-muted-foreground">
@@ -565,6 +603,7 @@ export function DatesPage() {
             Coba lagi
           </Button>
         </ScrapbookCard>
+        )
       ) : null}
 
       {datesState.kind === 'ready' && viewMode === 'calendar' ? (
@@ -586,7 +625,11 @@ export function DatesPage() {
           <p className="mt-2 text-sm font-bold leading-relaxed text-muted-foreground">
             Bikin satu dulu? Tulis idenya, nanti masuk scrapbook kalian.
           </p>
-          <Button className="mt-4 w-full" onClick={() => setIsCreateOpen(true)}>
+          <Button
+            className="mt-4 w-full"
+            disabled={!isOnline}
+            onClick={() => setIsCreateOpen(true)}
+          >
             <Plus aria-hidden="true" size={18} />
             Bikin rencana
           </Button>

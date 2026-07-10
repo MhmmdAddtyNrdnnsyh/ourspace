@@ -22,6 +22,11 @@ import { Button } from '@/components/ui/button'
 import { PairingStatusSkeleton } from '@/components/loading-skeleton'
 import { DatePickerInput } from '@/components/ui/date-picker-input'
 import { Input } from '@/components/ui/input'
+import { OfflineNotice } from '@/components/offline-notice'
+import {
+  offlineMutationMessage,
+  useOnlineStatus,
+} from '@/lib/online-status'
 import {
   getPairingErrorMessage,
   getPendingSession,
@@ -58,6 +63,7 @@ function getRecoveryErrorMessage(error: unknown) {
 export function PairingPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { hasHydrated, isOnline } = useOnlineStatus()
   const redirectMessage =
     typeof location.state === 'object' &&
     location.state !== null &&
@@ -82,6 +88,25 @@ export function PairingPage() {
   const recoveryLocked = useRef(false)
 
   useEffect(() => {
+    function handleOffline() {
+      if (holdTimer.current !== null) {
+        window.clearInterval(holdTimer.current)
+        holdTimer.current = null
+      }
+
+      pairingStartLocked.current = false
+      setState({ kind: 'error', message: offlineMutationMessage })
+    }
+
+    window.addEventListener('offline', handleOffline)
+    return () => window.removeEventListener('offline', handleOffline)
+  }, [])
+
+  useEffect(() => {
+    if (!hasHydrated || !isOnline) {
+      return
+    }
+
     let active = true
 
     async function checkAccess() {
@@ -117,10 +142,10 @@ export function PairingPage() {
     return () => {
       active = false
     }
-  }, [navigate])
+  }, [hasHydrated, isOnline, navigate])
 
   useEffect(() => {
-    if (state.kind !== 'waiting') {
+    if (!isOnline || state.kind !== 'waiting') {
       return
     }
 
@@ -164,9 +189,14 @@ export function PairingPage() {
       window.clearInterval(countdownTimer)
       window.clearInterval(pollTimer)
     }
-  }, [navigate, state])
+  }, [isOnline, navigate, state])
 
   async function beginHold() {
+    if (!isOnline) {
+      setState({ kind: 'error', message: offlineMutationMessage })
+      return
+    }
+
     const trimmedNickname = getPendingNickname()
 
     if (trimmedNickname.length < 2) {
@@ -225,6 +255,12 @@ export function PairingPage() {
   }
 
   async function finishHold(pairingSessionId: string, trimmedNickname: string) {
+    if (!isOnline) {
+      pairingStartLocked.current = false
+      setState({ kind: 'error', message: offlineMutationMessage })
+      return
+    }
+
     clearHoldTimer()
 
     try {
@@ -311,6 +347,11 @@ function clearHoldTimer() {
   }
 
   async function submitRecovery() {
+    if (!isOnline) {
+      setRecoveryError('Pemulihan butuh internet.')
+      return
+    }
+
     const nickname = recoveryNickname.trim()
 
     if (recoveryLocked.current || isRecovering) {
@@ -345,6 +386,36 @@ function clearHoldTimer() {
 
   const progress =
     state.kind === 'holding' ? Math.round(state.progress * 100) : 0
+
+  if (hasHydrated && !isOnline) {
+    return (
+      <main className="app-canvas min-h-dvh bg-background px-4 py-8 text-foreground">
+        <div className="mx-auto grid max-w-[420px] gap-4">
+          <OfflineNotice />
+          <div className="rounded-[2rem] border bg-card p-5 shadow-[0_18px_45px_rgb(103_74_58_/_0.14)]">
+            <h1 className="text-3xl font-black leading-tight">
+              Pairing butuh internet
+            </h1>
+            <p className="mt-3 text-sm font-bold leading-relaxed text-muted-foreground">
+              Pairing dan pemulihan perlu koneksi supaya akses kalian bisa dicek
+              dengan aman.
+            </p>
+            <Button
+              className="mt-5 w-full"
+              onClick={() =>
+                navigate('/offline', {
+                  state: { from: '/pairing' },
+                })
+              }
+              variant="secondary"
+            >
+              Lihat bantuan offline
+            </Button>
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   if (access.kind === 'checking') {
     return <PairingStatusSkeleton />
@@ -431,7 +502,7 @@ function clearHoldTimer() {
 
           <Button
             className="mt-4 w-full"
-            disabled={isRecovering}
+            disabled={isRecovering || !isOnline}
             onClick={submitRecovery}
           >
             {isRecovering ? (

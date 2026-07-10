@@ -36,6 +36,10 @@ import {
 } from '@/lib/api'
 import type { BackupHealthData, BackupRecord } from '@/lib/api'
 import { clearSession, getStoredSession } from '@/lib/session'
+import {
+  offlineMutationMessage,
+  useOnlineStatus,
+} from '@/lib/online-status'
 
 type ApiStatus =
   | { readonly kind: 'idle' }
@@ -95,6 +99,8 @@ function cleanErrorDetails(message: string) {
 
 function friendlyApiError(code: string) {
   switch (code) {
+    case 'NETWORK_OFFLINE':
+      return 'Kamu sedang offline. Coba cek koneksi internet dulu.'
     case 'UNAUTHORIZED':
       return 'Session lokal tidak valid atau belum ada.'
     case 'CONFIG_MISSING':
@@ -275,6 +281,7 @@ export function SettingsPage() {
 }
 
 export function SettingsHealthPage() {
+  const { isOnline } = useOnlineStatus()
   const [apiStatus, setApiStatus] = useState<ApiStatus>({ kind: 'idle' })
   const [sessionStatus, setSessionStatus] = useState<ApiStatus>({ kind: 'idle' })
   const [galleryStatus, setGalleryStatus] = useState<ApiStatus>({ kind: 'idle' })
@@ -358,6 +365,11 @@ export function SettingsHealthPage() {
   }
 
   async function handleRunBackupNow() {
+    if (!isOnline) {
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     if (backupRunLocked.current) {
       return
     }
@@ -397,6 +409,7 @@ export function SettingsHealthPage() {
         description="Tes endpoint Apps Script lewat proxy."
         icon={<Wifi aria-hidden="true" size={24} />}
         isChecking={apiStatus.kind === 'checking'}
+        isDisabled={!isOnline}
         onClick={handleCheckConnection}
         status={apiStatus}
         title="Koneksi"
@@ -405,6 +418,7 @@ export function SettingsHealthPage() {
         description="Cek apakah device ini masih punya akses valid."
         icon={<UserRound aria-hidden="true" size={24} />}
         isChecking={sessionStatus.kind === 'checking'}
+        isDisabled={!isOnline}
         onClick={handleCheckSession}
         status={sessionStatus}
         title="Session device"
@@ -414,6 +428,7 @@ export function SettingsHealthPage() {
         description="Cek property Drive dan folder gallery tanpa upload foto."
         icon={<Images aria-hidden="true" size={24} />}
         isChecking={galleryStatus.kind === 'checking'}
+        isDisabled={!isOnline}
         onClick={handleCheckGallery}
         status={galleryStatus}
         title="Penyimpanan foto"
@@ -429,7 +444,7 @@ export function SettingsHealthPage() {
             </p>
             <div className="mt-4 grid gap-2">
               <Button
-                disabled={backupStatus.kind === 'checking'}
+                disabled={backupStatus.kind === 'checking' || !isOnline}
                 onClick={handleCheckBackup}
                 variant="secondary"
               >
@@ -441,7 +456,7 @@ export function SettingsHealthPage() {
                 Cek Backup
               </Button>
               <Button
-                disabled={backupStatus.kind === 'checking'}
+                disabled={backupStatus.kind === 'checking' || !isOnline}
                 onClick={handleRunBackupNow}
                 variant="outline"
               >
@@ -582,6 +597,7 @@ export function SettingsSetupPage() {
 
 export function SettingsDangerPage() {
   const navigate = useNavigate()
+  const { isOnline } = useOnlineStatus()
   const [resetStatus, setResetStatus] = useState<ApiStatus>({ kind: 'idle' })
   const [isClearSessionOpen, setIsClearSessionOpen] = useState(false)
   const [isResetPairingOpen, setIsResetPairingOpen] = useState(false)
@@ -595,6 +611,11 @@ export function SettingsDangerPage() {
   }
 
   async function handleResetPairing() {
+    if (!isOnline) {
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     setIsResetPairingOpen(false)
     setResetConfirmation('')
     setResetStatus({ kind: 'checking' })
@@ -650,7 +671,7 @@ export function SettingsDangerPage() {
             </p>
             <div className="mt-4 grid gap-2">
               <Button
-                disabled={resetStatus.kind === 'checking'}
+                disabled={resetStatus.kind === 'checking' || !isOnline}
                 onClick={() => setIsResetPairingOpen(true)}
                 variant="destructive"
               >
@@ -801,6 +822,7 @@ function HealthCard({
   description,
   icon,
   isChecking,
+  isDisabled,
   onClick,
   status,
   title,
@@ -809,6 +831,7 @@ function HealthCard({
   readonly description: string
   readonly icon: ReactNode
   readonly isChecking: boolean
+  readonly isDisabled: boolean
   readonly onClick: () => void
   readonly status: ApiStatus
   readonly title: string
@@ -825,7 +848,7 @@ function HealthCard({
           </p>
           <Button
             className="mt-4 w-full"
-            disabled={isChecking}
+            disabled={isChecking || isDisabled}
             onClick={onClick}
             variant="secondary"
           >

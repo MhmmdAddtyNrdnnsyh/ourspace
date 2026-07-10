@@ -7,6 +7,7 @@ import { ScrapbookCard } from '@/components/scrapbook'
 import { SessionGate } from '@/components/session-gate'
 import { HomePage } from '@/pages/home'
 import { PairingPage } from '@/pages/pairing'
+import { OfflinePage } from '@/pages/offline'
 
 const DatesPage = lazy(() =>
   import('@/pages/dates').then((module) => ({ default: module.DatesPage })),
@@ -57,6 +58,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/pairing" element={<PairingPage />} />
+      <Route path="/offline" element={<OfflinePage />} />
       <Route element={<SessionGate />}>
         <Route element={<AppShell />}>
           <Route index element={<HomePage />} />

@@ -6,6 +6,8 @@ import {
   NotebookText,
 } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
+import { OfflineNotice } from '@/components/offline-notice'
+import { useOnlineStatus } from '@/lib/online-status'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -17,6 +19,8 @@ const navItems = [
 ] as const
 
 export function AppShell() {
+  const { hasHydrated, isOnline } = useOnlineStatus()
+
   return (
     <div className="app-canvas min-h-dvh bg-background text-foreground">
       <div className="app-shell mx-auto flex min-h-dvh w-full max-w-[480px] flex-col overflow-hidden border-x bg-background shadow-[0_24px_80px_rgb(103_74_58_/_0.14)]">
@@ -24,6 +28,11 @@ export function AppShell() {
           Langsung ke konten
         </a>
         <main className="flex-1 px-4 pb-32 pt-6 sm:px-5" id="app-content">
+          {hasHydrated && !isOnline ? (
+            <div className="mb-4">
+              <OfflineNotice />
+            </div>
+          ) : null}
           <Outlet />
         </main>
         <nav

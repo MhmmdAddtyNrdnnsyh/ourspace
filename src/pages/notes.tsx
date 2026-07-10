@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { NotesSkeleton } from '@/components/loading-skeleton'
+import { OfflineEmptyState } from '@/components/offline-notice'
 import { ScrapbookCard } from '@/components/scrapbook'
 import { Button } from '@/components/ui/button'
 import { ConfirmAlertDialog } from '@/components/ui/confirm-alert-dialog'
@@ -41,6 +42,10 @@ import {
   type NoteColor,
 } from '@/lib/note-colors'
 import { cn } from '@/lib/utils'
+import {
+  offlineMutationMessage,
+  useOnlineStatus,
+} from '@/lib/online-status'
 
 type NotesState =
   | { readonly kind: 'loading' }
@@ -98,6 +103,7 @@ function validateBody(body: string) {
 }
 
 export function NotesPage() {
+  const { isOnline } = useOnlineStatus()
   const [notesState, setNotesState] = useState<NotesState>(() => {
     const cached = getCachedNotesList()
     return cached
@@ -112,6 +118,10 @@ export function NotesPage() {
   const [deleteTarget, setDeleteTarget] = useState<StickyNote | null>(null)
 
   const loadNotes = useCallback(async () => {
+    if (!isOnline) {
+      return
+    }
+
     if (getCachedNotesList() === null) {
       setNotesState({ kind: 'loading' })
     }
@@ -136,9 +146,13 @@ export function NotesPage() {
           : { kind: 'error', message },
       )
     }
-  }, [])
+  }, [isOnline])
 
   useEffect(() => {
+    if (!isOnline) {
+      return
+    }
+
     let isActive = true
 
     listNotes({ limit: 50, cursor: null })
@@ -170,9 +184,15 @@ export function NotesPage() {
     return () => {
       isActive = false
     }
-  }, [])
+  }, [isOnline])
 
   async function handleCreate() {
+    if (!isOnline) {
+      setCreateEditor({ ...createEditor, error: offlineMutationMessage })
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     const body = validateBody(createEditor.body)
 
     if (body === null) {
@@ -220,6 +240,12 @@ export function NotesPage() {
   }
 
   async function handleUpdate(note: StickyNote) {
+    if (!isOnline) {
+      setEditEditor({ ...editEditor, error: offlineMutationMessage })
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     const body = validateBody(editEditor.body)
 
     if (body === null) {
@@ -258,6 +284,11 @@ export function NotesPage() {
   }
 
   async function handleDelete(note: StickyNote) {
+    if (!isOnline) {
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     setBusyAction('delete:' + note.id)
 
     try {
@@ -296,6 +327,7 @@ export function NotesPage() {
         <Button
           aria-label="Buat note baru"
           className="page-action mt-1 shrink-0"
+          disabled={!isOnline}
           onClick={() => setIsCreateOpen(true)}
           size="icon"
         >
@@ -304,10 +336,11 @@ export function NotesPage() {
       </header>
 
       {notesState.kind === 'loading' ? (
-        <NotesSkeleton />
+        isOnline ? <NotesSkeleton /> : <OfflineEmptyState />
       ) : null}
 
       {notesState.kind === 'ready' &&
+      isOnline &&
       (notesState.isRefreshing || notesState.warning) ? (
         <p className="rounded-full bg-scrap-yellow px-4 py-2 text-xs font-extrabold text-muted-foreground">
           {notesState.warning ||
@@ -316,6 +349,9 @@ export function NotesPage() {
       ) : null}
 
       {notesState.kind === 'error' ? (
+        !isOnline ? (
+          <OfflineEmptyState />
+        ) : (
         <ScrapbookCard tone="pink" tape>
           <h2 className="text-2xl font-black">Notes belum kebuka.</h2>
           <p className="mt-2 text-sm font-bold leading-relaxed text-muted-foreground">
@@ -326,6 +362,7 @@ export function NotesPage() {
             Coba lagi
           </Button>
         </ScrapbookCard>
+        )
       ) : null}
 
       {notesState.kind === 'ready' && notesState.notes.length === 0 ? (
@@ -334,7 +371,11 @@ export function NotesPage() {
           <p className="mt-2 text-sm font-bold leading-relaxed text-muted-foreground">
             Tulis satu catatan kecil, nanti dia muncul di sini.
           </p>
-          <Button className="mt-4 w-full" onClick={() => setIsCreateOpen(true)}>
+          <Button
+            className="mt-4 w-full"
+            disabled={!isOnline}
+            onClick={() => setIsCreateOpen(true)}
+          >
             <Plus aria-hidden="true" size={18} />
             Buat note pertama
           </Button>

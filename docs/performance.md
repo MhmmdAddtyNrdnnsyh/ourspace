@@ -33,6 +33,10 @@ data..." state while the background request refreshes. If refresh fails, the
 cached UI stays visible with a soft warning. If no cache exists, the page uses
 the layout-matched skeleton and then the normal error state if the request fails.
 
+Saat browser offline, cache terakhir tetap dapat dibaca walaupun TTL-nya sudah
+lewat. Tidak ada background refresh sampai event `online` diterima. Detail dan
+batasannya ada di [Offline State UX](./offline.md).
+
 ## In-flight Dedupe
 
 Only safe reads are deduped:

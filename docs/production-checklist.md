@@ -55,6 +55,21 @@ Required Script Properties:
 5. Confirm duplicate simultaneous identical API calls are not visible during
    normal navigation.
 
+## Offline Smoke
+
+1. Saat online, buka Home, Notes, Dates, Gallery, dan Lists agar cache tersedia.
+2. Matikan network dari browser DevTools atau device.
+3. Pastikan halaman cached tetap tampil dengan `OfflineNotice`.
+4. Buka halaman yang belum mempunyai cache dan pastikan pesan offline tampil,
+   bukan skeleton tanpa akhir.
+5. Pastikan create/edit/delete, upload, pairing, recovery, pemeriksaan Settings,
+   dan `Backup sekarang` diblokir dengan alasan yang jelas.
+6. Buka `/offline`, tekan `Coba lagi` saat masih offline, lalu pastikan pesan
+   tetap ramah dan halaman tidak berpindah.
+7. Nyalakan network, tekan `Coba lagi`, dan pastikan app kembali ke halaman
+   sebelumnya atau Home.
+8. Pastikan bottom navigation masih dapat membuka halaman cached saat offline.
+
 ## Manual Test
 
 1. Open the production URL on mobile.

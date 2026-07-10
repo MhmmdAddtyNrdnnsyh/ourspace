@@ -1,5 +1,6 @@
 import { appConfig } from '@/lib/env'
 import { getStoredSession } from '@/lib/session'
+import { isBrowserOnline, offlineMessage } from '@/lib/online-status'
 
 type ApiPayload = Readonly<Record<string, unknown>>
 
@@ -99,8 +100,7 @@ function isCacheEntry(value: unknown): value is CachedValue<unknown> {
   return (
     isRecord(value) &&
     'data' in value &&
-    typeof value.expiresAt === 'number' &&
-    value.expiresAt > Date.now()
+    typeof value.expiresAt === 'number'
   )
 }
 
@@ -137,7 +137,11 @@ function readSessionCache<TData>(
 
     const parsedValue: unknown = JSON.parse(rawValue)
 
-    if (!isCacheEntry(parsedValue) || !isData(parsedValue.data)) {
+    if (
+      !isCacheEntry(parsedValue) ||
+      !isData(parsedValue.data) ||
+      (parsedValue.expiresAt <= Date.now() && isBrowserOnline())
+    ) {
       sessionStorage.removeItem(key)
       return null
     }
@@ -466,13 +470,27 @@ export async function apiRequest(
 }
 
 async function sendApiRequest(body: string): Promise<unknown> {
-  const response = await fetch(appConfig.apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8',
-    },
-    body,
-  })
+  if (!isBrowserOnline()) {
+    throw new ApiError({ code: 'NETWORK_OFFLINE', message: offlineMessage })
+  }
+
+  let response: Response
+
+  try {
+    response = await fetch(appConfig.apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body,
+    })
+  } catch (error) {
+    if (!isBrowserOnline() || error instanceof TypeError) {
+      throw new ApiError({ code: 'NETWORK_OFFLINE', message: offlineMessage })
+    }
+
+    throw new ApiNetworkError('API belum bisa dihubungi. Coba lagi sebentar.')
+  }
 
   const responseText = await response.text()
   let responseBody: unknown
@@ -807,17 +825,30 @@ export async function resumeSession(options: ResumeSessionOptions = {}) {
 }
 
 export function recoverSession(input: SessionRecoverInput) {
-  clearApiCaches()
-  return apiRequest('session.recover', input)
+  return runMutation(
+    () => apiRequest('session.recover', input),
+    clearApiCaches,
+  )
 }
 
 export function getCoupleStatus() {
   return apiRequest('couple.status')
 }
 
+async function runMutation<TData>(
+  request: () => Promise<TData>,
+  clearCaches: () => void,
+) {
+  const data = await request()
+  clearCaches()
+  return data
+}
+
 export function resetCouple() {
-  clearApiCaches()
-  return apiRequest('couple.reset')
+  return runMutation(
+    () => apiRequest('couple.reset'),
+    clearApiCaches,
+  )
 }
 
 export function startPairing(nickname: string) {
@@ -859,21 +890,33 @@ export async function listNotes(input: ListNotesInput = {}) {
 }
 
 export function createNote(input: NoteWriteInput) {
-  clearCachedHomeData()
-  clearCachedNotesList()
-  return apiRequest('notes.create', input)
+  return runMutation(
+    () => apiRequest('notes.create', input),
+    () => {
+      clearCachedHomeData()
+      clearCachedNotesList()
+    },
+  )
 }
 
 export function updateNote(input: NoteUpdateInput) {
-  clearCachedHomeData()
-  clearCachedNotesList()
-  return apiRequest('notes.update', input)
+  return runMutation(
+    () => apiRequest('notes.update', input),
+    () => {
+      clearCachedHomeData()
+      clearCachedNotesList()
+    },
+  )
 }
 
 export function deleteNote(id: string) {
-  clearCachedHomeData()
-  clearCachedNotesList()
-  return apiRequest('notes.delete', { id })
+  return runMutation(
+    () => apiRequest('notes.delete', { id }),
+    () => {
+      clearCachedHomeData()
+      clearCachedNotesList()
+    },
+  )
 }
 
 export async function listDatePlans() {
@@ -885,21 +928,33 @@ export async function listDatePlans() {
 }
 
 export function createDatePlan(input: DatePlanWriteInput) {
-  clearCachedHomeData()
-  clearCachedDatePlansList()
-  return apiRequest('datePlans.create', input)
+  return runMutation(
+    () => apiRequest('datePlans.create', input),
+    () => {
+      clearCachedHomeData()
+      clearCachedDatePlansList()
+    },
+  )
 }
 
 export function updateDatePlan(input: DatePlanUpdateInput) {
-  clearCachedHomeData()
-  clearCachedDatePlansList()
-  return apiRequest('datePlans.update', input)
+  return runMutation(
+    () => apiRequest('datePlans.update', input),
+    () => {
+      clearCachedHomeData()
+      clearCachedDatePlansList()
+    },
+  )
 }
 
 export function deleteDatePlan(id: string) {
-  clearCachedHomeData()
-  clearCachedDatePlansList()
-  return apiRequest('datePlans.delete', { id })
+  return runMutation(
+    () => apiRequest('datePlans.delete', { id }),
+    () => {
+      clearCachedHomeData()
+      clearCachedDatePlansList()
+    },
+  )
 }
 
 export async function listGallery(input: ListGalleryInput = {}) {
@@ -920,21 +975,33 @@ export function checkGalleryHealth() {
 }
 
 export function createGalleryItem(input: GalleryCreateInput) {
-  clearCachedHomeData()
-  clearCachedGalleryList()
-  return apiRequest('gallery.create', input)
+  return runMutation(
+    () => apiRequest('gallery.create', input),
+    () => {
+      clearCachedHomeData()
+      clearCachedGalleryList()
+    },
+  )
 }
 
 export function updateGalleryItem(input: GalleryUpdateInput) {
-  clearCachedHomeData()
-  clearCachedGalleryList()
-  return apiRequest('gallery.update', input)
+  return runMutation(
+    () => apiRequest('gallery.update', input),
+    () => {
+      clearCachedHomeData()
+      clearCachedGalleryList()
+    },
+  )
 }
 
 export function deleteGalleryItem(id: string) {
-  clearCachedHomeData()
-  clearCachedGalleryList()
-  return apiRequest('gallery.delete', { id })
+  return runMutation(
+    () => apiRequest('gallery.delete', { id }),
+    () => {
+      clearCachedHomeData()
+      clearCachedGalleryList()
+    },
+  )
 }
 
 export async function listSharedItems() {
@@ -946,25 +1013,40 @@ export async function listSharedItems() {
 }
 
 export function createSharedItem(input: SharedItemWriteInput) {
-  clearCachedHomeData()
-  clearCachedSharedItemsList()
-  return apiRequest('sharedLists.create', input)
+  return runMutation(
+    () => apiRequest('sharedLists.create', input),
+    () => {
+      clearCachedHomeData()
+      clearCachedSharedItemsList()
+    },
+  )
 }
 
 export function updateSharedItem(input: SharedItemUpdateInput) {
-  clearCachedHomeData()
-  clearCachedSharedItemsList()
-  return apiRequest('sharedLists.update', input)
+  return runMutation(
+    () => apiRequest('sharedLists.update', input),
+    () => {
+      clearCachedHomeData()
+      clearCachedSharedItemsList()
+    },
+  )
 }
 
 export function deleteSharedItem(id: string) {
-  clearCachedHomeData()
-  clearCachedSharedItemsList()
-  return apiRequest('sharedLists.delete', { id })
+  return runMutation(
+    () => apiRequest('sharedLists.delete', { id }),
+    () => {
+      clearCachedHomeData()
+      clearCachedSharedItemsList()
+    },
+  )
 }
 
 export function getCachedHomeData() {
-  if (cachedHomeData?.expiresAt && cachedHomeData.expiresAt > Date.now()) {
+  if (
+    cachedHomeData?.expiresAt &&
+    (cachedHomeData.expiresAt > Date.now() || !isBrowserOnline())
+  ) {
     traceApiCall({ action: 'home.get', cacheStatus: 'hit', status: 'cache' })
     return cachedHomeData.data
   }
@@ -980,7 +1062,10 @@ export function getCachedHomeData() {
 }
 
 export function getCachedNotesList() {
-  if (cachedNotesList?.expiresAt && cachedNotesList.expiresAt > Date.now()) {
+  if (
+    cachedNotesList?.expiresAt &&
+    (cachedNotesList.expiresAt > Date.now() || !isBrowserOnline())
+  ) {
     traceApiCall({ action: 'notes.list', cacheStatus: 'hit', status: 'cache' })
     return cachedNotesList.data
   }
@@ -998,7 +1083,7 @@ export function getCachedNotesList() {
 export function getCachedDatePlansList() {
   if (
     cachedDatePlansList?.expiresAt &&
-    cachedDatePlansList.expiresAt > Date.now()
+    (cachedDatePlansList.expiresAt > Date.now() || !isBrowserOnline())
   ) {
     traceApiCall({
       action: 'datePlans.list',
@@ -1019,7 +1104,10 @@ export function getCachedDatePlansList() {
 }
 
 export function getCachedGalleryList() {
-  if (cachedGalleryList?.expiresAt && cachedGalleryList.expiresAt > Date.now()) {
+  if (
+    cachedGalleryList?.expiresAt &&
+    (cachedGalleryList.expiresAt > Date.now() || !isBrowserOnline())
+  ) {
     traceApiCall({ action: 'gallery.list', cacheStatus: 'hit', status: 'cache' })
     return cachedGalleryList.data
   }
@@ -1032,7 +1120,7 @@ export function getCachedGalleryList() {
 export function getCachedSharedItemsList() {
   if (
     cachedSharedItemsList?.expiresAt &&
-    cachedSharedItemsList.expiresAt > Date.now()
+    (cachedSharedItemsList.expiresAt > Date.now() || !isBrowserOnline())
   ) {
     traceApiCall({
       action: 'sharedLists.list',

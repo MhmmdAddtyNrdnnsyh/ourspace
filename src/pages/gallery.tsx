@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { GallerySkeleton } from '@/components/loading-skeleton'
+import { OfflineEmptyState } from '@/components/offline-notice'
 import { ScrapbookCard } from '@/components/scrapbook'
 import { Button } from '@/components/ui/button'
 import { ConfirmAlertDialog } from '@/components/ui/confirm-alert-dialog'
@@ -35,6 +36,10 @@ import {
   updateGalleryItem,
 } from '@/lib/api'
 import type { GalleryItem } from '@/lib/api'
+import {
+  offlineMutationMessage,
+  useOnlineStatus,
+} from '@/lib/online-status'
 
 type GalleryState =
   | { readonly kind: 'loading' }
@@ -72,6 +77,8 @@ function getErrorMessage(error: unknown) {
         return 'Folder Drive belum dikonfigurasi.'
       case 'DRIVE_ERROR':
         return 'Folder Drive OurSpace belum bisa diakses.'
+      case 'NETWORK_OFFLINE':
+        return error.message
       default:
         return 'Gallery belum bisa diproses.'
     }
@@ -231,6 +238,7 @@ function validateEdit(editor: EditEditor) {
 }
 
 export function GalleryPage() {
+  const { isOnline } = useOnlineStatus()
   const [galleryState, setGalleryState] = useState<GalleryState>(() => {
     const cached = getCachedGalleryList()
     return cached
@@ -250,6 +258,10 @@ export function GalleryPage() {
   const [deleteTarget, setDeleteTarget] = useState<GalleryItem | null>(null)
 
   const loadGallery = useCallback(async () => {
+    if (!isOnline) {
+      return
+    }
+
     if (getCachedGalleryList() === null) {
       setGalleryState({ kind: 'loading' })
     }
@@ -274,9 +286,13 @@ export function GalleryPage() {
           : { kind: 'error', message },
       )
     }
-  }, [])
+  }, [isOnline])
 
   useEffect(() => {
+    if (!isOnline) {
+      return
+    }
+
     let isActive = true
 
     listGallery()
@@ -308,9 +324,15 @@ export function GalleryPage() {
     return () => {
       isActive = false
     }
-  }, [])
+  }, [isOnline])
 
   async function handleUpload() {
+    if (!isOnline) {
+      setUploadEditor({ ...uploadEditor, error: offlineMutationMessage })
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     const validationError = validateUpload(uploadEditor)
 
     if (validationError) {
@@ -366,6 +388,12 @@ export function GalleryPage() {
   }
 
   async function handleUpdate(item: GalleryItem) {
+    if (!isOnline) {
+      setEditEditor({ ...editEditor, error: offlineMutationMessage })
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     const validationError = validateEdit(editEditor)
 
     if (validationError) {
@@ -405,6 +433,11 @@ export function GalleryPage() {
   }
 
   async function handleDelete(item: GalleryItem) {
+    if (!isOnline) {
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     setBusyAction('delete:' + item.id)
 
     try {
@@ -443,6 +476,7 @@ export function GalleryPage() {
         <Button
           aria-label="Upload foto"
           className="page-action mt-1 shrink-0"
+          disabled={!isOnline}
           onClick={() => setIsUploadOpen(true)}
           size="icon"
         >
@@ -451,10 +485,11 @@ export function GalleryPage() {
       </header>
 
       {galleryState.kind === 'loading' ? (
-        <GallerySkeleton />
+        isOnline ? <GallerySkeleton /> : <OfflineEmptyState />
       ) : null}
 
       {galleryState.kind === 'ready' &&
+      isOnline &&
       (galleryState.isRefreshing || galleryState.warning) ? (
         <p className="rounded-full bg-scrap-yellow px-4 py-2 text-xs font-extrabold text-muted-foreground">
           {galleryState.warning ||
@@ -463,6 +498,9 @@ export function GalleryPage() {
       ) : null}
 
       {galleryState.kind === 'error' ? (
+        !isOnline ? (
+          <OfflineEmptyState />
+        ) : (
         <ScrapbookCard tone="pink" tape>
           <h2 className="text-2xl font-black">Gallery belum kebuka.</h2>
           <p className="mt-2 text-sm font-bold leading-relaxed text-muted-foreground">
@@ -473,6 +511,7 @@ export function GalleryPage() {
             Coba lagi
           </Button>
         </ScrapbookCard>
+        )
       ) : null}
 
       {galleryState.kind === 'ready' && galleryState.items.length === 0 ? (
@@ -481,7 +520,11 @@ export function GalleryPage() {
           <p className="mt-2 text-sm font-bold leading-relaxed text-muted-foreground">
             Simpan momen pertama dulu? Pilih satu foto dari device kamu.
           </p>
-          <Button className="mt-4 w-full" onClick={() => setIsUploadOpen(true)}>
+          <Button
+            className="mt-4 w-full"
+            disabled={!isOnline}
+            onClick={() => setIsUploadOpen(true)}
+          >
             <ImagePlus aria-hidden="true" size={18} />
             Simpan foto pertama
           </Button>

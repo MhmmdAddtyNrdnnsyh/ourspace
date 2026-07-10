@@ -13,6 +13,7 @@ import {
   Send,
 } from 'lucide-react'
 import { ScrapbookCard } from '@/components/scrapbook'
+import { OfflineEmptyState } from '@/components/offline-notice'
 import { HomeSkeleton } from '@/components/loading-skeleton'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -39,6 +40,10 @@ import {
   type NoteColor,
 } from '@/lib/note-colors'
 import { cn } from '@/lib/utils'
+import {
+  offlineMutationMessage,
+  useOnlineStatus,
+} from '@/lib/online-status'
 
 type HomeState =
   | { readonly kind: 'loading' }
@@ -148,6 +153,7 @@ function createCachedSummary(): HomeSummary {
 }
 
 export function HomePage() {
+  const { isOnline } = useOnlineStatus()
   const [homeState, setHomeState] = useState<HomeState>(() => {
     const cached = getCachedHomeData()
     return cached
@@ -161,6 +167,10 @@ export function HomePage() {
   const [formError, setFormError] = useState('')
 
   const loadHome = useCallback(async () => {
+    if (!isOnline) {
+      return
+    }
+
     setHomeState((current) =>
       current.kind === 'ready'
         ? { ...current, isRefreshing: true, warning: '' }
@@ -188,9 +198,13 @@ export function HomePage() {
           : { kind: 'error', message },
       )
     }
-  }, [])
+  }, [isOnline])
 
   useEffect(() => {
+    if (!isOnline) {
+      return
+    }
+
     let isActive = true
 
     Promise.all([getHome(), loadHomeSummary()])
@@ -223,7 +237,7 @@ export function HomePage() {
     return () => {
       isActive = false
     }
-  }, [])
+  }, [isOnline])
 
   const todayNotes = useMemo(() => {
     return homeState.kind === 'ready'
@@ -232,6 +246,12 @@ export function HomePage() {
   }, [homeState])
 
   async function handleCreateNote() {
+    if (!isOnline) {
+      setFormError(offlineMutationMessage)
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     const nextBody = body.trim()
 
     if (!nextBody || nextBody.length > 280) {
@@ -264,6 +284,10 @@ export function HomePage() {
   }
 
   if (homeState.kind === 'loading') {
+    if (!isOnline) {
+      return <OfflineEmptyState />
+    }
+
     return (
       <div className="py-6">
         <HomeSkeleton />
@@ -272,6 +296,10 @@ export function HomePage() {
   }
 
   if (homeState.kind === 'error') {
+    if (!isOnline) {
+      return <OfflineEmptyState />
+    }
+
     return (
       <div className="grid min-h-[60dvh] place-items-center">
         <ScrapbookCard className="w-full" tone="pink" tape>
@@ -292,7 +320,7 @@ export function HomePage() {
 
   return (
     <div className="space-y-5">
-      {homeState.isRefreshing || homeState.warning ? (
+      {isOnline && (homeState.isRefreshing || homeState.warning) ? (
         <p className="rounded-full bg-scrap-yellow px-4 py-2 text-xs font-extrabold text-muted-foreground">
           {homeState.warning || 'Data terakhir ditampilkan dulu. Lagi nyegerin data...'}
         </p>
@@ -366,7 +394,7 @@ export function HomePage() {
 
         <Button
           className="mt-4 w-full"
-          disabled={isCreating}
+          disabled={isCreating || !isOnline}
           onClick={handleCreateNote}
         >
           {isCreating ? (

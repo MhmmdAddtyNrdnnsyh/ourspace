@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ListsSkeleton } from '@/components/loading-skeleton'
+import { OfflineEmptyState } from '@/components/offline-notice'
 import { ScrapbookCard } from '@/components/scrapbook'
 import { Button } from '@/components/ui/button'
 import { ConfirmAlertDialog } from '@/components/ui/confirm-alert-dialog'
@@ -45,6 +46,10 @@ import type {
   SharedItemStatus,
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import {
+  offlineMutationMessage,
+  useOnlineStatus,
+} from '@/lib/online-status'
 
 type ListsState =
   | { readonly kind: 'loading' }
@@ -281,6 +286,7 @@ function validateEditor(editor: EditorState): EditorValidation {
 }
 
 export function ListsPage() {
+  const { isOnline } = useOnlineStatus()
   const [listsState, setListsState] = useState<ListsState>(() => {
     const cached = getCachedSharedItemsList()
     return cached
@@ -297,6 +303,10 @@ export function ListsPage() {
   const [deleteTarget, setDeleteTarget] = useState<SharedItem | null>(null)
 
   const loadItems = useCallback(async () => {
+    if (!isOnline) {
+      return
+    }
+
     if (getCachedSharedItemsList() === null) {
       setListsState({ kind: 'loading' })
     }
@@ -321,9 +331,13 @@ export function ListsPage() {
           : { kind: 'error', message },
       )
     }
-  }, [])
+  }, [isOnline])
 
   useEffect(() => {
+    if (!isOnline) {
+      return
+    }
+
     let isActive = true
 
     listSharedItems()
@@ -355,7 +369,7 @@ export function ListsPage() {
     return () => {
       isActive = false
     }
-  }, [])
+  }, [isOnline])
 
   const visibleItems = useMemo(() => {
     if (listsState.kind !== 'ready') {
@@ -371,6 +385,12 @@ export function ListsPage() {
   }, [categoryFilter, listsState, statusFilter])
 
   async function handleCreate() {
+    if (!isOnline) {
+      setCreateEditor({ ...createEditor, error: offlineMutationMessage })
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     const input = validateEditor(createEditor)
 
     if ('error' in input) {
@@ -406,6 +426,12 @@ export function ListsPage() {
   }
 
   async function handleUpdate(item: SharedItem) {
+    if (!isOnline) {
+      setEditEditor({ ...editEditor, error: offlineMutationMessage })
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     const input = validateEditor(editEditor)
 
     if ('error' in input) {
@@ -440,6 +466,11 @@ export function ListsPage() {
   }
 
   async function handleDelete(item: SharedItem) {
+    if (!isOnline) {
+      toast.error(offlineMutationMessage)
+      return
+    }
+
     setBusyAction('delete:' + item.id)
 
     try {
@@ -478,6 +509,7 @@ export function ListsPage() {
         <Button
           aria-label="Tambah item wishlist"
           className="page-action mt-1 shrink-0"
+          disabled={!isOnline}
           onClick={() => setIsCreateOpen(true)}
           size="icon"
         >
@@ -493,10 +525,11 @@ export function ListsPage() {
       />
 
       {listsState.kind === 'loading' ? (
-        <ListsSkeleton />
+        isOnline ? <ListsSkeleton /> : <OfflineEmptyState />
       ) : null}
 
       {listsState.kind === 'ready' &&
+      isOnline &&
       (listsState.isRefreshing || listsState.warning) ? (
         <p className="rounded-full bg-scrap-yellow px-4 py-2 text-xs font-extrabold text-muted-foreground">
           {listsState.warning ||
@@ -505,6 +538,9 @@ export function ListsPage() {
       ) : null}
 
       {listsState.kind === 'error' ? (
+        !isOnline ? (
+          <OfflineEmptyState />
+        ) : (
         <ScrapbookCard tone="pink" tape>
           <h2 className="text-2xl font-black">List belum kebuka.</h2>
           <p className="mt-2 text-sm font-bold leading-relaxed text-muted-foreground">
@@ -515,6 +551,7 @@ export function ListsPage() {
             Coba lagi
           </Button>
         </ScrapbookCard>
+        )
       ) : null}
 
       {listsState.kind === 'ready' && listsState.items.length === 0 ? (
@@ -523,7 +560,11 @@ export function ListsPage() {
           <p className="mt-2 text-sm font-bold leading-relaxed text-muted-foreground">
             Tambah satu ide, nanti jadi list kecil buat kalian.
           </p>
-          <Button className="mt-4 w-full" onClick={() => setIsCreateOpen(true)}>
+          <Button
+            className="mt-4 w-full"
+            disabled={!isOnline}
+            onClick={() => setIsCreateOpen(true)}
+          >
             <Plus aria-hidden="true" size={18} />
             Tambah item pertama
           </Button>

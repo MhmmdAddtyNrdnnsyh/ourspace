@@ -14,6 +14,7 @@ Dokumentasi ini menjadi blueprint awal untuk membangun OurSpace: web app private
 - [Backup](./backup.md): cara kerja backup JSON private, trigger harian, dan batasan restore.
 - [Deployment](./deployment.md): langkah deploy Vercel, env, dan smoke test production.
 - [Performance](./performance.md): catatan cache ringan, lazy route, dan batasan Apps Script.
+- [Offline UX](./offline.md): perilaku cache, batasan aksi offline, dan halaman offline.
 - [Production Checklist](./production-checklist.md): checklist env, Apps Script, Drive, Vercel, dan manual test sebelum dipakai harian.
 - [Live Testing](./live-testing.md): checklist deploy, pairing, Home, dan Notes CRUD sebelum fitur baru.
 - [MVP Roadmap](./mvp-roadmap.md): urutan build dari docs sampai fitur lanjutan.
