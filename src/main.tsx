@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { HashRouter } from 'react-router'
+import { BrowserRouter } from 'react-router'
 import './index.css'
 import { App } from './App.tsx'
 import { ErrorBoundary } from '@/components/error-boundary'
@@ -17,10 +17,10 @@ if (root === null) {
 createRoot(root).render(
   <StrictMode>
     <ErrorBoundary>
-      <HashRouter>
+      <BrowserRouter>
         <App />
         <Toaster />
-      </HashRouter>
+      </BrowserRouter>
     </ErrorBoundary>
   </StrictMode>,
 )
