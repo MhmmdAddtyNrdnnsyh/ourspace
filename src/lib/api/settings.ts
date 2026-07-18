@@ -19,7 +19,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isHomeData(value: unknown): value is HomeData {
-  return isRecord(value)
+  return isRecord(value) && 'memberName' in value && 'anniversary' in value
 }
 
 export async function getHome() {

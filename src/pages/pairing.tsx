@@ -107,7 +107,10 @@ export function PairingPage() {
     }
 
     window.addEventListener('offline', handleOffline)
-    return () => window.removeEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('offline', handleOffline)
+      clearHoldTimer()
+    }
   }, [])
 
   useEffect(() => {

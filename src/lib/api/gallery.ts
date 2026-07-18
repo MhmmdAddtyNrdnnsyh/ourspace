@@ -2,6 +2,9 @@ import { isBrowserOnline } from '@/lib/online-status'
 import {
   apiRequest,
   runMutation,
+  readSessionCache,
+  writeSessionCache,
+  clearSessionCache,
   createCacheEntry,
   traceApiCall,
 } from './client'
@@ -14,8 +17,13 @@ import type {
 } from './types'
 
 const listCacheTtlMs = 60_000
+const listCacheKey = 'ourspace:cache:gallery-list'
 
 let cachedGalleryList: CachedValue<GalleryListData> | null = null
+
+function isGalleryListData(value: unknown): value is GalleryListData {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
 
 export async function listGallery(input: ListGalleryInput = {}) {
   const limit = input.limit ?? 30
@@ -70,15 +78,22 @@ export function getCachedGalleryList() {
     return cachedGalleryList.data
   }
 
-  cachedGalleryList = null
-  traceApiCall({ action: 'gallery.list', cacheStatus: 'miss', status: 'cache' })
-  return null
+  const entry = readSessionCache(listCacheKey, isGalleryListData)
+  cachedGalleryList = entry
+  traceApiCall({
+    action: 'gallery.list',
+    cacheStatus: entry ? 'hit' : 'miss',
+    status: 'cache',
+  })
+  return entry?.data ?? null
 }
 
 export function setCachedGalleryList(data: GalleryListData) {
   cachedGalleryList = createCacheEntry(data, listCacheTtlMs)
+  writeSessionCache(listCacheKey, cachedGalleryList)
 }
 
 export function clearCachedGalleryList() {
   cachedGalleryList = null
+  clearSessionCache(listCacheKey)
 }

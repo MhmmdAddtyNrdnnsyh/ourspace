@@ -61,7 +61,7 @@ export function SessionGate() {
 
     return (
       <main className="grid min-h-dvh place-items-center bg-background px-5 text-foreground">
-        <div className="rounded-[2rem] border bg-card p-6 text-center shadow-[0_18px_45px_rgb(103_74_58_/_0.14)]">
+        <div className="rounded-[2rem] border bg-card p-6 text-center shadow-[0_18px_45px_rgb(103_74_58_/_0.14)]" aria-live="polite">
           <p className="text-sm font-extrabold text-muted-foreground">
             Lagi cek ruang kalian...
           </p>
