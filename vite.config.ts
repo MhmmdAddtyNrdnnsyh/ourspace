@@ -127,7 +127,7 @@ function appsScriptDevProxy(appsScriptUrl: string): Plugin {
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const appsScriptUrl = env.APPS_SCRIPT_URL
+  const appsScriptUrl = env.VITE_APPS_SCRIPT_URL
 
   return {
     plugins: [

@@ -28,6 +28,8 @@ jobs:
 
       - name: Build web app
         run: bun run build
+        env:
+          VITE_APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
 
       - name: Sync Capacitor
         run: bunx cap sync android
